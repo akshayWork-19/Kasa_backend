@@ -2,11 +2,11 @@ import app from "./app.js";
 import { configDotenv } from 'dotenv';
 configDotenv();
 
-const PORT = process.env.PORT || 8000;
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not defined');
+}
 
-app.get('/api/health', (_, res) => {
-    res.json({ success: true, message: "Server is running!" })
-})
+const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
     console.log(`Server is running on ${PORT}`)

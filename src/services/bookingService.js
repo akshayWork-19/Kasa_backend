@@ -1,19 +1,24 @@
 import db from "../config/db.js";
 
 const checkAvailablity = async (roomId, startDate, endDate, exludeBookingId = null) => {
-    let query = `SELECT id FROM bookings
-    WHERE room_id = ?
-      AND start_date < ?
-      AND end_date > ?`;
-    const params = [roomId, endDate, startDate];
+    try {
+        let query = `SELECT id FROM bookings
+     WHERE room_id = ?
+       AND start_date < ?
+       AND end_date > ?`;
+        const params = [roomId, endDate, startDate];
 
-    if (exludeBookingId) {
-        query += ' AND id != ?';
-        params.push(exludeBookingId);
+        if (exludeBookingId) {
+            query += ' AND id != ?';
+            params.push(exludeBookingId);
+        }
+
+        const [rows] = await db.query(query, params);
+        return rows.length === 0;
+    } catch (error) {
+        if (error.status) throw error; // re-throw your known errors as-is
+        throw { status: 500, message: 'Database error. Please try again.' };
     }
-
-    const [rows] = await db.query(query, params);
-    return rows.length === 0;
 }
 
 const createBooking = async ({ userId, roomId, startDate, endDate }) => {
@@ -66,7 +71,6 @@ const createBooking = async ({ userId, roomId, startDate, endDate }) => {
         );
 
         await conn.commit();
-        conn.release();
 
         return {
             id: result.insertId,
@@ -81,24 +85,31 @@ const createBooking = async ({ userId, roomId, startDate, endDate }) => {
 
     } catch (error) {
         await conn.rollback();
+        if (error.status) throw error; // re-throw your known errors as-is
+        throw { status: 500, message: 'Database error. Please try again.' };
+    } finally {
         conn.release();
-        throw error;
-    };
+    }
 };
 
 
 const getUsersBookings = async (userId) => {
-    const [rows] = await db.query(
-        `SELECT b.id, b.start_date, b.end_date, b.total_price, b.created_at,
-            r.id as room_id, r.name as room_name, r.price_per_night, r.image_url, r.description
-     FROM bookings b
-     JOIN rooms r ON b.room_id = r.id
-     WHERE b.user_id = ?
-     ORDER BY b.created_at DESC`,
-        [userId]
-    );
+    try {
+        const [rows] = await db.query(
+            `SELECT b.id, b.start_date, b.end_date, b.total_price, b.created_at,
+                r.id as room_id, r.name as room_name, r.price_per_night, r.image_url, r.description
+         FROM bookings b
+         JOIN rooms r ON b.room_id = r.id
+         WHERE b.user_id = ?
+         ORDER BY b.created_at DESC`,
+            [userId]
+        );
 
-    return rows;
+        return rows;
+    } catch (error) {
+        if (error.status) throw error; // re-throw your known errors as-is
+        throw { status: 500, message: 'Database error. Please try again.' };
+    }
 }
 
 const checkRoomAvailablity = async (roomId, startDate, endDate) => {
